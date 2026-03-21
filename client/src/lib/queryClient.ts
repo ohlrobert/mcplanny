@@ -1,0 +1,98 @@
+import { QueryClient, QueryFunction } from "@tanstack/react-query";
+
+const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
+
+// In-memory token store (no localStorage — blocked in sandboxed iframe)
+let _authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  _authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return _authToken;
+}
+
+function getAuthHeaders(): Record<string, string> {
+  if (_authToken) return { Authorization: `Bearer ${_authToken}` };
+  return {};
+}
+
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    const text = (await res.text()) || res.statusText;
+    throw new Error(`${res.status}: ${text}`);
+  }
+}
+
+// Flexible apiRequest: supports (url, options) OR (method, url, data)
+export async function apiRequest(
+  urlOrMethod: string,
+  optionsOrUrl?: RequestInit | string,
+  data?: unknown,
+): Promise<any> {
+  let method: string;
+  let url: string;
+  let body: string | undefined;
+  let headers: Record<string, string> = { ...getAuthHeaders() };
+
+  if (typeof optionsOrUrl === "string") {
+    // Old-style: apiRequest(method, url, data)
+    method = urlOrMethod;
+    url = optionsOrUrl;
+    if (data !== undefined) {
+      body = JSON.stringify(data);
+      headers["Content-Type"] = "application/json";
+    }
+  } else {
+    // New-style: apiRequest(url, { method, body, headers })
+    url = urlOrMethod;
+    const opts = optionsOrUrl || {};
+    method = (opts.method as string) || "GET";
+    body = opts.body as string | undefined;
+    headers = { ...headers, ...(opts.headers as Record<string, string> || {}) };
+  }
+
+  const res = await fetch(`${API_BASE}${url}`, { method, headers, body });
+  await throwIfResNotOk(res);
+
+  // Try to return JSON, fall back to text
+  const contentType = res.headers.get("content-type");
+  if (contentType?.includes("application/json")) {
+    return res.json();
+  }
+  return res.text();
+}
+
+type UnauthorizedBehavior = "returnNull" | "throw";
+export const getQueryFn: <T>(options: {
+  on401: UnauthorizedBehavior;
+}) => QueryFunction<T> =
+  ({ on401: unauthorizedBehavior }) =>
+  async ({ queryKey }) => {
+    const res = await fetch(`${API_BASE}${queryKey[0] as string}`, {
+      headers: getAuthHeaders(),
+    });
+
+    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      return null;
+    }
+
+    await throwIfResNotOk(res);
+    return await res.json();
+  };
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: getQueryFn({ on401: "returnNull" }),
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      retry: false,
+    },
+    mutations: {
+      retry: false,
+    },
+  },
+});
