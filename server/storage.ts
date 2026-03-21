@@ -1,5 +1,5 @@
 import {
-  type User, type InsertUser, users,
+  type User, type InsertUser, type InsertGoogleUser, users,
   type Plan, type InsertPlan, plans,
   type Account, type InsertAccount, accounts,
   type RealEstate, type InsertRealEstate, realEstate,
@@ -27,6 +27,16 @@ sqlite.exec(`
     email TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+`);
+
+// Add new columns if they don't exist (safe migrations)
+const existingUserCols = sqlite.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+const userColNames = existingUserCols.map(c => c.name);
+if (!userColNames.includes("google_id")) sqlite.exec("ALTER TABLE users ADD COLUMN google_id TEXT;");
+if (!userColNames.includes("display_name")) sqlite.exec("ALTER TABLE users ADD COLUMN display_name TEXT;");
+if (!userColNames.includes("avatar_url")) sqlite.exec("ALTER TABLE users ADD COLUMN avatar_url TEXT;");
+
+sqlite.exec(`
   CREATE TABLE IF NOT EXISTS plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -160,7 +170,9 @@ export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  upsertGoogleUser(data: InsertGoogleUser): Promise<User>;
   // Plans
   getPlanByUserId(userId: number): Promise<Plan | undefined>;
   createPlan(plan: InsertPlan): Promise<Plan>;
@@ -207,7 +219,27 @@ export class DatabaseStorage implements IStorage {
   // Users
   async getUser(id: number) { return db.select().from(users).where(eq(users.id, id)).get(); }
   async getUserByUsername(username: string) { return db.select().from(users).where(eq(users.username, username)).get(); }
+  async getUserByGoogleId(googleId: string) { return db.select().from(users).where(eq(users.googleId, googleId)).get(); }
   async createUser(user: InsertUser) { return db.insert(users).values(user).returning().get(); }
+  async upsertGoogleUser(data: InsertGoogleUser): Promise<User> {
+    const existing = await this.getUserByGoogleId(data.googleId);
+    if (existing) {
+      const updated = await db.update(users)
+        .set({ displayName: data.displayName, avatarUrl: data.avatarUrl, email: data.email })
+        .where(eq(users.googleId, data.googleId))
+        .returning().get();
+      return updated!;
+    }
+    const username = `google_${data.googleId}`;
+    return db.insert(users).values({
+      username,
+      password: "",
+      email: data.email,
+      googleId: data.googleId,
+      displayName: data.displayName,
+      avatarUrl: data.avatarUrl,
+    }).returning().get();
+  }
 
   // Plans
   async getPlanByUserId(userId: number) { return db.select().from(plans).where(eq(plans.userId, userId)).get(); }

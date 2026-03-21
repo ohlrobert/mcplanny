@@ -1,21 +1,18 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 import {
   insertPlanSchema, insertAccountSchema, insertRealEstateSchema,
   insertDebtSchema, insertIncomeSchema, insertExpenseSchema,
   insertHealthcareSchema, insertScenarioSchema, insertWithdrawalStrategySchema,
-  insertUserSchema,
 } from "@shared/schema";
 
-const JWT_SECRET = "mcplanny-jwt-secret-2026-v2";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-// Simple password hashing
-function hashPassword(pw: string) {
-  return crypto.createHash("sha256").update(pw + "mcplanny_salt_v1").digest("hex");
-}
+const JWT_SECRET = "mcplanny-jwt-secret-2026-v2";
 
 function makeToken(userId: number): string {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "30d" });
@@ -37,29 +34,47 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
-  // ─── Auth ────────────────────────────────────────────────────────────────
-  app.post("/api/auth/register", async (req, res) => {
-    const parsed = insertUserSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    const existing = await storage.getUserByUsername(parsed.data.username);
-    if (existing) return res.status(409).json({ error: "Username already taken" });
-    const user = await storage.createUser({ ...parsed.data, password: hashPassword(parsed.data.password) });
-    // Create default plan for new user
-    await storage.createPlan({ userId: user.id, firstName: "", lastName: "", updatedAt: new Date().toISOString() });
-    const token = makeToken(user.id);
-    const { password: _, ...safeUser } = user;
-    res.json({ user: safeUser, token });
+  // ─── Config (public) ─────────────────────────────────────────────────────
+  app.get("/api/config", (_req, res) => {
+    res.json({ googleClientId: GOOGLE_CLIENT_ID });
   });
 
-  app.post("/api/auth/login", async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Username and password required" });
-    const user = await storage.getUserByUsername(username);
-    if (!user) return res.status(401).json({ error: "User not found" });
-    if (user.password !== hashPassword(password)) return res.status(401).json({ error: "Wrong password" });
-    const token = makeToken(user.id);
-    const { password: _, ...safeUser } = user;
-    res.json({ user: safeUser, token });
+  // ─── Auth ────────────────────────────────────────────────────────────────
+  app.post("/api/auth/google", async (req, res) => {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: "Missing credential" });
+    if (!GOOGLE_CLIENT_ID) return res.status(500).json({ error: "Google auth not configured" });
+
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      if (!payload || !payload.sub) return res.status(401).json({ error: "Invalid Google token" });
+
+      const user = await storage.upsertGoogleUser({
+        googleId: payload.sub,
+        email: payload.email,
+        displayName: payload.name,
+        avatarUrl: payload.picture,
+      });
+
+      // Create default plan for new Google user if they don't have one
+      const existingPlan = await storage.getPlanByUserId(user.id);
+      if (!existingPlan) {
+        const firstName = payload.given_name || "";
+        const lastName = payload.family_name || "";
+        await storage.createPlan({ userId: user.id, firstName, lastName, updatedAt: new Date().toISOString() });
+      }
+
+      const token = makeToken(user.id);
+      const { password: _, ...safeUser } = user;
+      res.json({ user: safeUser, token });
+    } catch (err: any) {
+      console.error("Google auth error:", err);
+      res.status(401).json({ error: "Google authentication failed" });
+    }
   });
 
   app.post("/api/auth/logout", (_req, res) => {

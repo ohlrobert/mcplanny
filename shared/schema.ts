@@ -8,6 +8,9 @@ export const users = sqliteTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
+  googleId: text("google_id").unique(),
+  displayName: text("display_name"),
+  avatarUrl: text("avatar_url"),
   createdAt: text("created_at").notNull().default(new Date().toISOString()),
 });
 
@@ -16,6 +19,15 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   email: true,
 });
+
+export const insertGoogleUserSchema = z.object({
+  googleId: z.string(),
+  email: z.string().email().optional(),
+  displayName: z.string().optional(),
+  avatarUrl: z.string().optional(),
+});
+export type InsertGoogleUser = z.infer<typeof insertGoogleUserSchema>;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
