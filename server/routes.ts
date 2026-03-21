@@ -48,7 +48,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
       return res.status(500).send("Google auth not configured");
     }
-    const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+    const proto = req.get("x-forwarded-proto") || req.protocol;
+    const redirectUri = `${proto}://${req.get("host")}/api/auth/google/callback`;
     const client = getGoogleClient(redirectUri);
     const url = client.generateAuthUrl({
       access_type: "offline",
@@ -67,7 +68,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     try {
-      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+      const proto = req.get("x-forwarded-proto") || req.protocol;
+      const redirectUri = `${proto}://${req.get("host")}/api/auth/google/callback`;
       const client = getGoogleClient(redirectUri);
       const { tokens } = await client.getToken(code);
       const idToken = tokens.id_token;

@@ -6,6 +6,10 @@ import { createServer } from "http";
 const app = express();
 const httpServer = createServer(app);
 
+// Trust the reverse proxy (Replit's infrastructure handles HTTPS termination)
+// This ensures req.protocol returns "https" correctly in production
+app.set("trust proxy", 1);
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
