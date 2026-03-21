@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Router } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { queryClient, setAuthToken } from "./lib/queryClient";
@@ -26,7 +27,27 @@ export function handleLogout() {
   queryClient.clear();
 }
 
+function useTokenFromUrl() {
+  useEffect(() => {
+    const hash = window.location.hash;
+    const queryPart = hash.includes("?") ? hash.split("?")[1] : "";
+    const params = new URLSearchParams(queryPart);
+    const token = params.get("auth_token");
+    const authError = params.get("auth_error");
+
+    if (token) {
+      setAuthToken(token);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      window.location.hash = "#/";
+    } else if (authError) {
+      window.location.hash = "#/";
+    }
+  }, []);
+}
+
 function AppRouter() {
+  useTokenFromUrl();
+
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/auth/me"],
     retry: false,

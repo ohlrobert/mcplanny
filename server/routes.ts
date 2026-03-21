@@ -10,7 +10,11 @@ import {
 } from "@shared/schema";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
-const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+
+function getGoogleClient(redirectUri: string) {
+  return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirectUri);
+}
 
 const JWT_SECRET = "mcplanny-jwt-secret-2026-v2";
 
@@ -36,22 +40,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ─── Config (public) ─────────────────────────────────────────────────────
   app.get("/api/config", (_req, res) => {
-    res.json({ googleClientId: GOOGLE_CLIENT_ID });
+    res.json({ configured: !!GOOGLE_CLIENT_ID });
   });
 
-  // ─── Auth ────────────────────────────────────────────────────────────────
-  app.post("/api/auth/google", async (req, res) => {
-    const { credential } = req.body;
-    if (!credential) return res.status(400).json({ error: "Missing credential" });
-    if (!GOOGLE_CLIENT_ID) return res.status(500).json({ error: "Google auth not configured" });
+  // ─── Auth: Start Google OAuth flow ───────────────────────────────────────
+  app.get("/api/auth/google/start", (req, res) => {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return res.status(500).send("Google auth not configured");
+    }
+    const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+    const client = getGoogleClient(redirectUri);
+    const url = client.generateAuthUrl({
+      access_type: "offline",
+      scope: ["openid", "email", "profile"],
+      prompt: "select_account",
+    });
+    res.redirect(url);
+  });
+
+  // ─── Auth: Google OAuth callback ─────────────────────────────────────────
+  app.get("/api/auth/google/callback", async (req, res) => {
+    const { code, error } = req.query as { code?: string; error?: string };
+
+    if (error || !code) {
+      return res.redirect("/#/?auth_error=cancelled");
+    }
 
     try {
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
+      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+      const client = getGoogleClient(redirectUri);
+      const { tokens } = await client.getToken(code);
+      const idToken = tokens.id_token;
+      if (!idToken) return res.redirect("/#/?auth_error=no_token");
+
+      const ticket = await client.verifyIdToken({
+        idToken,
         audience: GOOGLE_CLIENT_ID,
       });
       const payload = ticket.getPayload();
-      if (!payload || !payload.sub) return res.status(401).json({ error: "Invalid Google token" });
+      if (!payload || !payload.sub) return res.redirect("/#/?auth_error=invalid_token");
 
       const user = await storage.upsertGoogleUser({
         googleId: payload.sub,
@@ -60,20 +87,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         avatarUrl: payload.picture,
       });
 
-      // Create default plan for new Google user if they don't have one
       const existingPlan = await storage.getPlanByUserId(user.id);
       if (!existingPlan) {
-        const firstName = payload.given_name || "";
-        const lastName = payload.family_name || "";
-        await storage.createPlan({ userId: user.id, firstName, lastName, updatedAt: new Date().toISOString() });
+        await storage.createPlan({
+          userId: user.id,
+          firstName: payload.given_name || "",
+          lastName: payload.family_name || "",
+          updatedAt: new Date().toISOString(),
+        });
       }
 
       const token = makeToken(user.id);
-      const { password: _, ...safeUser } = user;
-      res.json({ user: safeUser, token });
+      res.redirect(`/#/?auth_token=${token}`);
     } catch (err: any) {
-      console.error("Google auth error:", err);
-      res.status(401).json({ error: "Google authentication failed" });
+      console.error("Google OAuth callback error:", err);
+      res.redirect("/#/?auth_error=failed");
     }
   });
 
