@@ -8,8 +8,8 @@ A full-stack retirement financial planning application that helps users model re
 ### Tech Stack
 - **Frontend**: React 18 + Vite + TypeScript + TailwindCSS + Radix UI
 - **Backend**: Express 5 + TypeScript (tsx for dev)
-- **Database**: SQLite via Drizzle ORM (file: `data.db`)
-- **Auth**: JWT-based authentication with bcrypt-style password hashing
+- **Database**: PostgreSQL via Drizzle ORM (Replit built-in, `DATABASE_URL` env var)
+- **Auth**: Google OAuth 2.0 (server-side flow) + JWT; token persisted in localStorage
 - **State**: TanStack Query for server state
 
 ### Project Structure
@@ -21,15 +21,14 @@ A full-stack retirement financial planning application that helps users model re
 ├── server/           # Express backend
 │   ├── index.ts      # Entry point - serves on port 5000
 │   ├── routes.ts     # All API routes + projection engine
-│   ├── storage.ts    # Database access layer (Drizzle/SQLite)
+│   ├── storage.ts    # Database access layer (Drizzle/PostgreSQL)
 │   ├── vite.ts       # Vite dev middleware integration
 │   └── static.ts     # Static file serving (production)
 ├── shared/
 │   └── schema.ts     # Drizzle schema + Zod validation schemas
 ├── script/
 │   └── build.ts      # Production build script
-├── data.db           # SQLite database (auto-created)
-├── drizzle.config.ts # Drizzle config (SQLite, dialect)
+├── drizzle.config.ts # Drizzle config (PostgreSQL, dialect)
 ├── vite.config.ts    # Vite config (client root, aliases)
 └── package.json
 ```
