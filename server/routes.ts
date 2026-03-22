@@ -125,6 +125,79 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  // ─── ONE-TIME DATA MIGRATION (remove after use) ───────────────────────────
+  app.post("/api/admin/migrate", async (req, res) => {
+    const key = req.headers["x-migration-key"] || req.query.key;
+    if (!process.env.MIGRATION_KEY || key !== process.env.MIGRATION_KEY) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    try {
+      const { db } = await import("./storage");
+      const { plans, accounts, realEstate, incomes, expenses } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // Update plan 1 (7molly4@gmail.com) with full profile
+      await db.update(plans).set({
+        firstName: "Robert", lastName: "Ohl", birthYear: 1969, gender: "male",
+        retirementAge: 60, planToAge: 95, stateOfResidence: "Oregon",
+        filingStatus: "single", hasSpouse: false, spouseFirstName: "", spouseLastName: "",
+        spouseBirthYear: null, spouseGender: "female", spouseRetirementAge: 65, spousePlanToAge: 90,
+        inflationRate: 2.5, medicalInflationRate: 5.0, housingAppreciationRate: 3.0, ssCola: 2.5,
+        legacyGoal: 2000000, dollarDisplay: "today", updatedAt: new Date().toISOString(),
+      }).where(eq(plans.id, 1));
+
+      // Clear any existing financial data for plan 1 to avoid duplicates
+      await db.delete(accounts).where(eq(accounts.planId, 1));
+      await db.delete(realEstate).where(eq(realEstate.planId, 1));
+      await db.delete(incomes).where(eq(incomes.planId, 1));
+      await db.delete(expenses).where(eq(expenses.planId, 1));
+
+      // Insert accounts
+      await db.insert(accounts).values([
+        { planId: 1, owner: "primary", accountType: "brokerage",       name: "Ally Brokerage",    balance: 8200,    rateOfReturn: 15, assetAllocation: 100, annualContribution: 0,    employerMatch: 0, employerMatchLimit: 0 },
+        { planId: 1, owner: "primary", accountType: "roth_ira",        name: "Ally Roth",          balance: 64800,   rateOfReturn: 12, assetAllocation: 100, annualContribution: 8600, employerMatch: 0, employerMatchLimit: 0 },
+        { planId: 1, owner: "primary", accountType: "traditional_ira", name: "Fidelity IRA",       balance: 1282800, rateOfReturn: 11, assetAllocation: 100, annualContribution: 0,    employerMatch: 0, employerMatchLimit: 0 },
+        { planId: 1, owner: "primary", accountType: "roth_ira",        name: "Fidelity ROTH IRA",  balance: 33000,   rateOfReturn: 12, assetAllocation: 100, annualContribution: 0,    employerMatch: 0, employerMatchLimit: 0 },
+        { planId: 1, owner: "primary", accountType: "hsa",             name: "Fidelity HSA",       balance: 28400,   rateOfReturn: 15, assetAllocation: 100, annualContribution: 0,    employerMatch: 0, employerMatchLimit: 0 },
+        { planId: 1, owner: "primary", accountType: "roth_401k",       name: "DKS Roth 401k",      balance: 4300,    rateOfReturn: 8,  assetAllocation: 100, annualContribution: 1800, employerMatch: 0, employerMatchLimit: 0 },
+        { planId: 1, owner: "primary", accountType: "brokerage",       name: "Fidelity Brokerage", balance: 129000,  rateOfReturn: 15, assetAllocation: 100, annualContribution: 0,    employerMatch: 0, employerMatchLimit: 0 },
+      ]);
+
+      // Insert real estate
+      await db.insert(realEstate).values([
+        { planId: 1, propertyType: "primary", name: "2715 Hillcrest Dr", currentValue: 621000, mortgageBalance: 170000, mortgageRate: 3.3, monthlyPayment: 1000, appreciationRate: 3.0, monthlyRentalIncome: 0, ownershipType: "own" },
+      ]);
+
+      // Insert income
+      await db.insert(incomes).values([
+        { planId: 1, owner: "primary", incomeType: "work", name: "DKS Salary", annualAmount: 80600, startAge: 56, endAge: 65, annualIncrease: 2.5, isOneTime: false, ssBenefitAge: 67, pensionType: "monthly", pensionCola: 0 },
+      ]);
+
+      // Insert expenses
+      await db.insert(expenses).values([
+        { planId: 1, expenseType: "housing",       category: "must_spend", name: "Mortgage",           annualAmount: 19800, startAge: 56, endAge: 73,   annualIncrease: 3.0, isOneTime: false },
+        { planId: 1, expenseType: "food",          category: "must_spend", name: "Weekly Groceries",   annualAmount: 10400,                              annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "food",          category: "must_spend", name: "Dining",             annualAmount: 10400,                              annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "other",         category: "must_spend", name: "Amber",              annualAmount: 14000,                              annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "insurance",     category: "must_spend", name: "Car Insurance",      annualAmount: 1800,                               annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "housing",       category: "must_spend", name: "Electric",           annualAmount: 2400,                               annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "housing",       category: "must_spend", name: "Natural Gas",        annualAmount: 1200,                               annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "housing",       category: "must_spend", name: "Water",              annualAmount: 1800,                               annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "housing",       category: "must_spend", name: "Garbage",            annualAmount: 600,                                annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "housing",       category: "must_spend", name: "Internet",           annualAmount: 600,                                annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "entertainment", category: "must_spend", name: "Youtube Streaming",  annualAmount: 1800,                               annualIncrease: 3.0, isOneTime: false },
+        { planId: 1, expenseType: "housing",       category: "must_spend", name: "Other Streaming",    annualAmount: 600,                                annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "other",         category: "must_spend", name: "Wildlife food",      annualAmount: 4000,                               annualIncrease: 2.5, isOneTime: false },
+        { planId: 1, expenseType: "other",         category: "must_spend", name: "Amber retirement",   annualAmount: 40000, startAge: 60,                annualIncrease: 2.5, isOneTime: false },
+      ]);
+
+      res.json({ success: true, message: "Migration complete for plan 1 (7molly4@gmail.com)" });
+    } catch (err: any) {
+      console.error("Migration error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/auth/me", requireAuth, async (req, res) => {
     const user = await storage.getUser((req as any).userId);
     if (!user) return res.status(401).json({ error: "Not found" });
