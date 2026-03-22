@@ -83,6 +83,8 @@ export const accounts = pgTable("accounts", {
   employerMatch: real("employer_match").default(0),
   employerMatchLimit: real("employer_match_limit").default(0),
   contributionEndAge: integer("contribution_end_age"),
+  plaidAccountId: text("plaid_account_id"),
+  plaidItemId: text("plaid_item_id"),
   notes: text("notes"),
 });
 
@@ -236,3 +238,19 @@ export const withdrawalStrategy = pgTable("withdrawal_strategy", {
 export const insertWithdrawalStrategySchema = createInsertSchema(withdrawalStrategy).omit({ id: true });
 export type InsertWithdrawalStrategy = z.infer<typeof insertWithdrawalStrategySchema>;
 export type WithdrawalStrategy = typeof withdrawalStrategy.$inferSelect;
+
+// ─── Plaid Connections ────────────────────────────────────────────────────────
+export const plaidConnections = pgTable("plaid_connections", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").notNull(),
+  accessToken: text("access_token").notNull(),
+  itemId: text("item_id").notNull(),
+  institutionId: text("institution_id"),
+  institutionName: text("institution_name"),
+  lastSynced: text("last_synced"),
+  createdAt: text("created_at").notNull().default(new Date().toISOString()),
+});
+
+export const insertPlaidConnectionSchema = createInsertSchema(plaidConnections).omit({ id: true, createdAt: true });
+export type InsertPlaidConnection = z.infer<typeof insertPlaidConnectionSchema>;
+export type PlaidConnection = typeof plaidConnections.$inferSelect;

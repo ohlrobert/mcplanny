@@ -10,10 +10,11 @@ import {
   type Scenario, type InsertScenario, scenarios,
   type Position, type InsertPosition, positions,
   type WithdrawalStrategy, type InsertWithdrawalStrategy, withdrawalStrategy,
+  type PlaidConnection, type InsertPlaidConnection, plaidConnections,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool);
@@ -65,6 +66,13 @@ export interface IStorage {
   // Withdrawal Strategy
   getWithdrawalStrategyByPlanId(planId: number): Promise<WithdrawalStrategy | undefined>;
   upsertWithdrawalStrategy(ws: InsertWithdrawalStrategy): Promise<WithdrawalStrategy>;
+  // Plaid Connections
+  getPlaidConnectionsByPlanId(planId: number): Promise<PlaidConnection[]>;
+  getPlaidConnectionById(id: number): Promise<PlaidConnection | undefined>;
+  createPlaidConnection(conn: InsertPlaidConnection): Promise<PlaidConnection>;
+  updatePlaidConnection(id: number, data: Partial<PlaidConnection>): Promise<PlaidConnection | undefined>;
+  deletePlaidConnection(id: number): Promise<void>;
+  getAccountByPlaidAccountId(planId: number, plaidAccountId: string): Promise<Account | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -261,6 +269,31 @@ export class DatabaseStorage implements IStorage {
       return rows[0]!;
     }
     const rows = await db.insert(withdrawalStrategy).values(ws).returning();
+    return rows[0];
+  }
+
+  // Plaid Connections
+  async getPlaidConnectionsByPlanId(planId: number) {
+    return db.select().from(plaidConnections).where(eq(plaidConnections.planId, planId));
+  }
+  async getPlaidConnectionById(id: number) {
+    const rows = await db.select().from(plaidConnections).where(eq(plaidConnections.id, id));
+    return rows[0];
+  }
+  async createPlaidConnection(conn: InsertPlaidConnection) {
+    const rows = await db.insert(plaidConnections).values({ ...conn, createdAt: new Date().toISOString() }).returning();
+    return rows[0];
+  }
+  async updatePlaidConnection(id: number, data: Partial<PlaidConnection>) {
+    const rows = await db.update(plaidConnections).set(data).where(eq(plaidConnections.id, id)).returning();
+    return rows[0];
+  }
+  async deletePlaidConnection(id: number) {
+    await db.delete(plaidConnections).where(eq(plaidConnections.id, id));
+  }
+  async getAccountByPlaidAccountId(planId: number, plaidAccountId: string) {
+    const rows = await db.select().from(accounts)
+      .where(and(eq(accounts.planId, planId), eq(accounts.plaidAccountId, plaidAccountId)));
     return rows[0];
   }
 }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, User, Landmark, Home, CreditCard, DollarSign,
   ShoppingCart, Heart, BarChart3, Compass, GitBranch,
-  LogOut, Sun, Moon, Menu, X, TrendingUp, PieChart, ArrowRightLeft,
+  LogOut, Sun, Moon, Menu, X, TrendingUp, PieChart, ArrowRightLeft, Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
@@ -16,6 +16,7 @@ const PLAN_NAV = [
   { href: "/profile", icon: User, label: "Profile & Goals" },
   { href: "/accounts", icon: Landmark, label: "Accounts" },
   { href: "/positions", icon: PieChart, label: "Positions" },
+  { href: "/connections", icon: Link2, label: "Connections" },
   { href: "/real-estate", icon: Home, label: "Real Estate" },
   { href: "/debts", icon: CreditCard, label: "Debts" },
   { href: "/income", icon: DollarSign, label: "Income" },

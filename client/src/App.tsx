@@ -21,6 +21,7 @@ import ScenariosPage from "@/pages/scenarios";
 import WithdrawalPage from "@/pages/withdrawal";
 import PositionsPage from "@/pages/positions";
 import RothConversionPage from "@/pages/roth-conversion";
+import ConnectionsPage from "@/pages/connections";
 import NotFound from "@/pages/not-found";
 
 export function handleLogout() {
@@ -93,6 +94,7 @@ function AppRouter() {
         <Route path="/withdrawal" component={WithdrawalPage} />
         <Route path="/positions" component={PositionsPage} />
         <Route path="/roth-conversion" component={RothConversionPage} />
+        <Route path="/connections" component={ConnectionsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

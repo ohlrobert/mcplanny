@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { registerPlaidRoutes } from "./plaid";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import {
@@ -392,6 +393,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const projections = computeProjections(plan, accts, re, dbts, incList, expList, hc, ws);
     res.json(projections);
   });
+
+  // ─── Plaid Integration ────────────────────────────────────────────────────
+  registerPlaidRoutes(app, requireAuth);
 
   return httpServer;
 }
