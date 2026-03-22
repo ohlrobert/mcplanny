@@ -2,11 +2,22 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
 
-// In-memory token store (no localStorage — blocked in sandboxed iframe)
-let _authToken: string | null = null;
+const TOKEN_KEY = "mcplanny_auth_token";
+
+// Persist token in localStorage so it survives page refreshes and return visits
+let _authToken: string | null = (() => {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+})();
 
 export function setAuthToken(token: string | null) {
   _authToken = token;
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch { /* ignore if storage unavailable */ }
 }
 
 export function getAuthToken(): string | null {
