@@ -38,6 +38,7 @@ function IncomeDialog({ open, onClose, income }: { open: boolean; onClose: () =>
       annualIncrease: income?.annualIncrease ?? 2.5,
       isOneTime: income?.isOneTime || false,
       ssBenefitAge: income?.ssBenefitAge || 67,
+      ssBaseMonthlyBenefit: (income as any)?.ssBaseMonthlyBenefit || "",
       pensionType: income?.pensionType || "monthly",
       pensionCola: income?.pensionCola || 0,
     },
@@ -55,6 +56,7 @@ function IncomeDialog({ open, onClose, income }: { open: boolean; onClose: () =>
         annualIncrease: income?.annualIncrease ?? 2.5,
         isOneTime: income?.isOneTime || false,
         ssBenefitAge: income?.ssBenefitAge || 67,
+        ssBaseMonthlyBenefit: (income as any)?.ssBaseMonthlyBenefit || "",
         pensionType: income?.pensionType || "monthly",
         pensionCola: income?.pensionCola || 0,
       });
@@ -94,6 +96,7 @@ function IncomeDialog({ open, onClose, income }: { open: boolean; onClose: () =>
           endAge: coerceInt(d.endAge),
           annualIncrease: coerce(d.annualIncrease) ?? 2.5,
           ssBenefitAge: coerceInt(d.ssBenefitAge),
+          ssBaseMonthlyBenefit: coerce((d as any).ssBaseMonthlyBenefit),
           pensionCola: coerce(d.pensionCola) || 0,
         }))} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-3">
@@ -129,16 +132,23 @@ function IncomeDialog({ open, onClose, income }: { open: boolean; onClose: () =>
           </div>
 
           {incomeType === "social_security" && (
-            <div className="space-y-1.5">
-              <Label>SS Claiming Age</Label>
-              <Select value={String(watch("ssBenefitAge"))} onValueChange={v => setValue("ssBenefitAge", parseInt(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[62,63,64,65,66,67,68,69,70].map(age => (
-                    <SelectItem key={age} value={String(age)}>Age {age}{age === 62 ? " (Early — reduced)" : age === 67 ? " (Full)" : age === 70 ? " (Maximum)" : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>SS Estimated Base Monthly Benefit ($)</Label>
+                <Input {...register("ssBaseMonthlyBenefit")} type="number" min={0} step={1} placeholder="e.g. 2400 (from your SSA statement)" />
+                <p className="text-xs text-muted-foreground">Your estimated benefit at full retirement age from ssa.gov</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>SS Claiming Age</Label>
+                <Select value={String(watch("ssBenefitAge"))} onValueChange={v => setValue("ssBenefitAge", parseInt(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[62,63,64,65,66,67,68,69,70].map(age => (
+                      <SelectItem key={age} value={String(age)}>Age {age}{age === 62 ? " (Early — reduced)" : age === 67 ? " (Full)" : age === 70 ? " (Maximum)" : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 

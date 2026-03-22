@@ -119,7 +119,7 @@ export default function ProfilePage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Gender</Label>
-                <Select value={watch("gender")} onValueChange={v => setValue("gender", v)}>
+                <Select value={watch("gender")} onValueChange={v => setValue("gender", v, { shouldDirty: true })}>
                   <SelectTrigger data-testid="select-gender"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="male">Male</SelectItem>
@@ -130,7 +130,7 @@ export default function ProfilePage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Filing Status</Label>
-                <Select value={watch("filingStatus")} onValueChange={v => setValue("filingStatus", v)}>
+                <Select value={watch("filingStatus")} onValueChange={v => setValue("filingStatus", v, { shouldDirty: true })}>
                   <SelectTrigger data-testid="select-filing-status"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="single">Single</SelectItem>
@@ -143,7 +143,7 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-1.5">
               <Label>State of Residence</Label>
-              <Select value={watch("stateOfResidence") || ""} onValueChange={v => setValue("stateOfResidence", v)}>
+              <Select value={watch("stateOfResidence") || ""} onValueChange={v => setValue("stateOfResidence", v, { shouldDirty: true })}>
                 <SelectTrigger data-testid="select-state"><SelectValue placeholder="Select state" /></SelectTrigger>
                 <SelectContent>
                   {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -178,7 +178,7 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-1.5">
               <Label>Dollar Display</Label>
-              <Select value={watch("dollarDisplay")} onValueChange={v => setValue("dollarDisplay", v)}>
+              <Select value={watch("dollarDisplay")} onValueChange={v => setValue("dollarDisplay", v, { shouldDirty: true })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">Today's Dollars (inflation-adjusted)</SelectItem>
@@ -226,7 +226,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Gender</Label>
-                  <Select value={watch("spouseGender")} onValueChange={v => setValue("spouseGender", v)}>
+                  <Select value={watch("spouseGender")} onValueChange={v => setValue("spouseGender", v, { shouldDirty: true })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="male">Male</SelectItem>

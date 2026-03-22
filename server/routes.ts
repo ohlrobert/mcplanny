@@ -7,6 +7,7 @@ import {
   insertPlanSchema, insertAccountSchema, insertRealEstateSchema,
   insertDebtSchema, insertIncomeSchema, insertExpenseSchema,
   insertHealthcareSchema, insertScenarioSchema, insertWithdrawalStrategySchema,
+  insertPositionSchema,
 } from "@shared/schema";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
@@ -344,6 +345,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const parsed = insertWithdrawalStrategySchema.safeParse({ ...req.body, planId: plan.id });
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
     res.json(await storage.upsertWithdrawalStrategy(parsed.data));
+  });
+
+  // ─── Positions ───────────────────────────────────────────────────────────
+  app.get("/api/positions", requireAuth, async (req, res) => {
+    const userId = (req as any).userId;
+    const plan = await storage.getPlanByUserId(userId);
+    if (!plan) return res.json([]);
+    res.json(await storage.getPositionsByPlanId(plan.id));
+  });
+
+  app.post("/api/positions", requireAuth, async (req, res) => {
+    const userId = (req as any).userId;
+    let plan = await storage.getPlanByUserId(userId);
+    if (!plan) plan = await storage.createPlan({ userId, firstName: "", lastName: "", updatedAt: new Date().toISOString() });
+    const parsed = insertPositionSchema.safeParse({ ...req.body, planId: plan.id });
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+    res.json(await storage.createPosition(parsed.data));
+  });
+
+  app.patch("/api/positions/:id", requireAuth, async (req, res) => {
+    res.json(await storage.updatePosition(parseInt(req.params.id), req.body));
+  });
+
+  app.delete("/api/positions/:id", requireAuth, async (req, res) => {
+    await storage.deletePosition(parseInt(req.params.id));
+    res.json({ success: true });
   });
 
   // ─── Projections (computed, not stored) ──────────────────────────────────

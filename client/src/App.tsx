@@ -19,6 +19,8 @@ import InsightsPage from "@/pages/insights";
 import ExplorersPage from "@/pages/explorers";
 import ScenariosPage from "@/pages/scenarios";
 import WithdrawalPage from "@/pages/withdrawal";
+import PositionsPage from "@/pages/positions";
+import RothConversionPage from "@/pages/roth-conversion";
 import NotFound from "@/pages/not-found";
 
 export function handleLogout() {
@@ -89,6 +91,8 @@ function AppRouter() {
         <Route path="/explorers" component={ExplorersPage} />
         <Route path="/scenarios" component={ScenariosPage} />
         <Route path="/withdrawal" component={WithdrawalPage} />
+        <Route path="/positions" component={PositionsPage} />
+        <Route path="/roth-conversion" component={RothConversionPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

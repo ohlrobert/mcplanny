@@ -8,6 +8,7 @@ import {
   type Expense, type InsertExpense, expenses,
   type Healthcare, type InsertHealthcare, healthcare,
   type Scenario, type InsertScenario, scenarios,
+  type Position, type InsertPosition, positions,
   type WithdrawalStrategy, type InsertWithdrawalStrategy, withdrawalStrategy,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -227,6 +228,25 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteScenario(id: number) {
     await db.delete(scenarios).where(eq(scenarios.id, id));
+  }
+
+  // Positions
+  async getPositionsByPlanId(planId: number) {
+    return db.select().from(positions).where(eq(positions.planId, planId));
+  }
+  async getPositionsByAccountId(accountId: number) {
+    return db.select().from(positions).where(eq(positions.accountId, accountId));
+  }
+  async createPosition(position: InsertPosition) {
+    const rows = await db.insert(positions).values(position).returning();
+    return rows[0];
+  }
+  async updatePosition(id: number, position: Partial<InsertPosition>) {
+    const rows = await db.update(positions).set(position).where(eq(positions.id, id)).returning();
+    return rows[0];
+  }
+  async deletePosition(id: number) {
+    await db.delete(positions).where(eq(positions.id, id));
   }
 
   // Withdrawal Strategy

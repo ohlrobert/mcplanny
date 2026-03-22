@@ -135,6 +135,7 @@ export const incomes = pgTable("incomes", {
   annualIncrease: real("annual_increase").default(2.5),
   isOneTime: boolean("is_one_time").default(false),
   ssBenefitAge: integer("ss_benefit_age"),
+  ssBaseMonthlyBenefit: real("ss_base_monthly_benefit"),
   ssSurvivorBenefit: real("ss_survivor_benefit"),
   pensionType: text("pension_type"),
   pensionCola: real("pension_cola").default(0),
@@ -198,6 +199,23 @@ export const scenarios = pgTable("scenarios", {
 export const insertScenarioSchema = createInsertSchema(scenarios).omit({ id: true, createdAt: true });
 export type InsertScenario = z.infer<typeof insertScenarioSchema>;
 export type Scenario = typeof scenarios.$inferSelect;
+
+// ─── Investment Positions ─────────────────────────────────────────────────────
+export const positions = pgTable("positions", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").notNull(),
+  accountId: integer("account_id").notNull(),
+  ticker: text("ticker").notNull(),
+  companyName: text("company_name"),
+  shares: real("shares").notNull().default(0),
+  costBasisPerShare: real("cost_basis_per_share").notNull().default(0),
+  currentPrice: real("current_price").notNull().default(0),
+  notes: text("notes"),
+});
+
+export const insertPositionSchema = createInsertSchema(positions).omit({ id: true });
+export type InsertPosition = z.infer<typeof insertPositionSchema>;
+export type Position = typeof positions.$inferSelect;
 
 // ─── Withdrawal Strategy ──────────────────────────────────────────────────────
 export const withdrawalStrategy = pgTable("withdrawal_strategy", {

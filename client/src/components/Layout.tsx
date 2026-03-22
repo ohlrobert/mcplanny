@@ -5,24 +5,29 @@ import { handleLogout } from "@/App";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, User, Landmark, Home, CreditCard, DollarSign,
-  ShoppingCart, Heart, BarChart3, Compass, GitBranch, Settings,
-  LogOut, Sun, Moon, Menu, X, ChevronRight, TrendingUp,
+  ShoppingCart, Heart, BarChart3, Compass, GitBranch,
+  LogOut, Sun, Moon, Menu, X, TrendingUp, PieChart, ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 
-const NAV_ITEMS = [
+const PLAN_NAV = [
   { href: "/", icon: LayoutDashboard, label: "Overview" },
   { href: "/profile", icon: User, label: "Profile & Goals" },
   { href: "/accounts", icon: Landmark, label: "Accounts" },
+  { href: "/positions", icon: PieChart, label: "Positions" },
   { href: "/real-estate", icon: Home, label: "Real Estate" },
   { href: "/debts", icon: CreditCard, label: "Debts" },
   { href: "/income", icon: DollarSign, label: "Income" },
   { href: "/expenses", icon: ShoppingCart, label: "Expenses" },
   { href: "/healthcare", icon: Heart, label: "Healthcare" },
+];
+
+const ANALYSIS_NAV = [
   { href: "/insights", icon: BarChart3, label: "Insights" },
   { href: "/explorers", icon: Compass, label: "Explorers" },
   { href: "/scenarios", icon: GitBranch, label: "Scenarios" },
+  { href: "/roth-conversion", icon: ArrowRightLeft, label: "Roth Conversion" },
   { href: "/withdrawal", icon: TrendingUp, label: "Withdrawal" },
 ];
 
@@ -79,7 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">My Plan</div>
-        {NAV_ITEMS.slice(0, 8).map(({ href, icon: Icon, label }) => (
+        {PLAN_NAV.map(({ href, icon: Icon, label }) => (
           <Link
             key={href}
             href={href}
@@ -96,7 +101,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         ))}
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 mt-4">Analysis</div>
-        {NAV_ITEMS.slice(8).map(({ href, icon: Icon, label }) => (
+        {ANALYSIS_NAV.map(({ href, icon: Icon, label }) => (
           <Link
             key={href}
             href={href}
