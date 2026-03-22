@@ -120,6 +120,7 @@ function AccountDialog({ open, onClose, account }: { open: boolean; onClose: () 
                 <SelectContent>
                   <SelectItem value="primary">Primary</SelectItem>
                   {hasSpouse && <SelectItem value="spouse">Spouse</SelectItem>}
+                  {p?.hasPartner && <SelectItem value="partner">Financial Partner</SelectItem>}
                   <SelectItem value="joint">Joint</SelectItem>
                 </SelectContent>
               </Select>

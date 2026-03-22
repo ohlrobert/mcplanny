@@ -40,16 +40,21 @@ A full-stack retirement financial planning application that helps users model re
 - **DB schema push**: `npm run db:push`
 
 ## Key Features
-- User authentication (register/login with JWT)
+- Google OAuth 2.0 authentication with email allowlist (`ALLOWED_EMAILS` env var)
 - Retirement plan management (personal info, retirement age, inflation)
-- Financial accounts tracking (401k, IRA, Roth, brokerage, etc.)
+- Financial accounts tracking (401k, IRA, Roth, brokerage, etc.) with owner (primary/spouse/partner/joint)
 - Real estate equity tracking
 - Debt tracking
-- Income sources (work, Social Security, pension, rental)
-- Expense tracking
-- Healthcare cost modeling (pre/post Medicare)
+- Income sources (work, Social Security with ss_base_monthly_benefit, pension, rental) with owner tagging
+- Expense tracking with monthly/annual input toggle, What-If scenario panel, owner tagging
+- Healthcare cost modeling (pre/post Medicare, LTC)
 - Retirement projections (year-by-year)
-- Monte Carlo simulation (1000 iterations, success probability)
+- Monte Carlo simulation: 1000 iterations with full percentile curves (P10/P25/P50/P75/P90 + mean + baseline) returned per retirement year
+- Insights page: Monte Carlo percentile chart, percentile table at key ages, Run Analysis button
+- Investment Positions tracker (ROTH/IRA/401k/HSA account types) with gain/loss calculations
+- Roth IRA Conversion Planner (federal + state tax, break-even, future value projection)
+- Financial Partner support: non-married partner with own accounts/income/expenses flowing into projections
+- Spouse support
 - Scenarios for what-if analysis
 - Withdrawal strategy planning
 

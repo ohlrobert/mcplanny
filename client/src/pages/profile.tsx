@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { US_STATES } from "@/lib/finance";
-import { User, Target, TrendingUp, MapPin } from "lucide-react";
+import { User, Target, TrendingUp, Users } from "lucide-react";
 
 export default function ProfilePage() {
   const qc = useQueryClient();
@@ -29,10 +29,14 @@ export default function ProfilePage() {
       inflationRate: 2.5, medicalInflationRate: 5.0,
       housingAppreciationRate: 3.0, ssCola: 2.5,
       legacyGoal: 0, dollarDisplay: "today",
+      hasPartner: false,
+      partnerFirstName: "", partnerLastName: "", partnerBirthYear: "",
+      partnerRetirementAge: 65, partnerPlanToAge: 90,
     },
   });
 
   const hasSpouse = watch("hasSpouse");
+  const hasPartner = watch("hasPartner");
 
   useEffect(() => {
     if (p) {
@@ -52,6 +56,12 @@ export default function ProfilePage() {
         spouseGender: p.spouseGender || "female",
         spouseRetirementAge: p.spouseRetirementAge || 65,
         spousePlanToAge: p.spousePlanToAge || 90,
+        hasPartner: p.hasPartner || false,
+        partnerFirstName: p.partnerFirstName || "",
+        partnerLastName: p.partnerLastName || "",
+        partnerBirthYear: p.partnerBirthYear ? String(p.partnerBirthYear) : "",
+        partnerRetirementAge: p.partnerRetirementAge || 65,
+        partnerPlanToAge: p.partnerPlanToAge || 90,
         inflationRate: p.inflationRate ?? 2.5,
         medicalInflationRate: p.medicalInflationRate ?? 5.0,
         housingAppreciationRate: p.housingAppreciationRate ?? 3.0,
@@ -70,10 +80,13 @@ export default function ProfilePage() {
           ...data,
           birthYear: data.birthYear ? parseInt(data.birthYear) : null,
           spouseBirthYear: data.spouseBirthYear ? parseInt(data.spouseBirthYear) : null,
+          partnerBirthYear: data.partnerBirthYear ? parseInt(data.partnerBirthYear) : null,
           retirementAge: parseInt(data.retirementAge),
           planToAge: parseInt(data.planToAge),
           spouseRetirementAge: parseInt(data.spouseRetirementAge),
           spousePlanToAge: parseInt(data.spousePlanToAge),
+          partnerRetirementAge: parseInt(data.partnerRetirementAge),
+          partnerPlanToAge: parseInt(data.partnerPlanToAge),
         }),
         headers: { "Content-Type": "application/json" },
       }),
@@ -239,6 +252,61 @@ export default function ProfilePage() {
                   <Label>Retirement Age</Label>
                   <Input {...register("spouseRetirementAge")} type="number" min={50} max={85} />
                 </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Financial Partner */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users size={16} className="text-primary" />
+                  Financial Partner
+                </CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  A non-married partner whose expenses and income you share financial responsibility for. Their net financial need flows into your projections.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2 ml-4">
+                <Label className="text-sm font-normal whitespace-nowrap">Include partner</Label>
+                <Switch
+                  checked={watch("hasPartner")}
+                  onCheckedChange={v => setValue("hasPartner", v, { shouldDirty: true })}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          {hasPartner && (
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Partner First Name</Label>
+                  <Input {...register("partnerFirstName")} placeholder="First name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Partner Last Name</Label>
+                  <Input {...register("partnerLastName")} placeholder="Last name" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Birth Year</Label>
+                  <Input {...register("partnerBirthYear")} type="number" placeholder="1968" min={1920} max={2010} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Retirement Age</Label>
+                  <Input {...register("partnerRetirementAge")} type="number" min={50} max={85} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Plan to Age</Label>
+                  <Input {...register("partnerPlanToAge")} type="number" min={65} max={110} />
+                </div>
+              </div>
+              <div className="p-3 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg text-xs text-purple-800 dark:text-purple-200">
+                Once enabled, you can tag accounts, income, and expenses as "Partner" so their finances flow into your retirement projections. Their expenses are treated as draws on your combined assets.
               </div>
             </CardContent>
           )}

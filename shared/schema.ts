@@ -56,6 +56,12 @@ export const plans = pgTable("plans", {
   ssCola: real("ss_cola").default(2.5),
   legacyGoal: real("legacy_goal").default(0),
   dollarDisplay: text("dollar_display").default("today"),
+  hasPartner: boolean("has_partner").default(false),
+  partnerFirstName: text("partner_first_name"),
+  partnerLastName: text("partner_last_name"),
+  partnerBirthYear: integer("partner_birth_year"),
+  partnerRetirementAge: integer("partner_retirement_age").default(65),
+  partnerPlanToAge: integer("partner_plan_to_age").default(90),
   updatedAt: text("updated_at").notNull().default(new Date().toISOString()),
 });
 
@@ -150,6 +156,7 @@ export type Income = typeof incomes.$inferSelect;
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   planId: integer("plan_id").notNull(),
+  owner: text("owner").notNull().default("primary"),
   expenseType: text("expense_type").notNull().default("other"),
   category: text("category").notNull().default("must_spend"),
   name: text("name").notNull(),

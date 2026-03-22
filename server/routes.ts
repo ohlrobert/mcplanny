@@ -565,31 +565,57 @@ function computeProjections(plan: any, accounts: any[], realEstateList: any[], d
 
 function runMonteCarlo(baseYears: any[], retirementAge: number, planToAge: number, currentAge: number, avgReturn: number) {
   const ITERATIONS = 1000;
-  const stdDev = 0.12; // 12% standard deviation
+  const stdDev = 0.12;
+
+  const retirementYears = baseYears.filter(y => y.isRetired);
+  if (retirementYears.length === 0) return null;
+
+  const startSavings = retirementYears[0]?.totalSavings || 0;
+  // Track savings at each retirement year across all simulations
+  const allSavings: number[][] = retirementYears.map(() => []);
   let successCount = 0;
 
   for (let i = 0; i < ITERATIONS; i++) {
-    let savings = baseYears[0]?.totalSavings || 0;
+    let savings = startSavings;
     let failed = false;
 
-    for (const yr of baseYears) {
-      if (!yr.isRetired) continue;
-      // Random return from normal distribution (Box-Muller)
+    for (let j = 0; j < retirementYears.length; j++) {
+      const yr = retirementYears[j];
       const u1 = Math.random(), u2 = Math.random();
       const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       const randomReturn = (avgReturn / 100) + z * stdDev;
       savings = savings * (1 + randomReturn);
       const withdrawal = yr.totalExpenses - yr.totalIncome;
       if (withdrawal > 0) savings -= withdrawal;
-      if (savings <= 0) { failed = true; break; }
+      if (savings < 0) savings = 0;
+      allSavings[j].push(savings);
+      if (savings <= 0 && !failed) failed = true;
     }
     if (!failed) successCount++;
   }
+
+  // Build percentile curves
+  const percentileData = retirementYears.map((yr, j) => {
+    const sims = [...allSavings[j]].sort((a, b) => a - b);
+    const pct = (p: number) => sims[Math.min(Math.floor(p * ITERATIONS), ITERATIONS - 1)];
+    const avg = Math.round(sims.reduce((s, v) => s + v, 0) / ITERATIONS);
+    return {
+      age: yr.age,
+      p10: Math.round(pct(0.10)),
+      p25: Math.round(pct(0.25)),
+      p50: Math.round(pct(0.50)),
+      p75: Math.round(pct(0.75)),
+      p90: Math.round(pct(0.90)),
+      average: avg,
+      baseline: yr.totalSavings,
+    };
+  });
 
   const chanceOfSuccess = Math.round((successCount / ITERATIONS) * 100);
   return {
     chanceOfSuccess,
     iterations: ITERATIONS,
     label: chanceOfSuccess >= 80 ? "Strong" : chanceOfSuccess >= 60 ? "Moderate" : "At Risk",
+    percentileData,
   };
 }

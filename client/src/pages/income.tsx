@@ -118,6 +118,7 @@ function IncomeDialog({ open, onClose, income }: { open: boolean; onClose: () =>
                 <SelectContent>
                   <SelectItem value="primary">Primary</SelectItem>
                   {p?.hasSpouse && <SelectItem value="spouse">Spouse</SelectItem>}
+                  {p?.hasPartner && <SelectItem value="partner">Financial Partner</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
