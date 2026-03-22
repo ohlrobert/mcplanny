@@ -42,3 +42,4 @@ build = ["npm", "run", "build"]
 
 [userenv.shared]
 ALLOWED_EMAILS = "7molly4@gmail.com,ohl.robert@gmail.com"
+PLAID_ENV = "sandbox"
