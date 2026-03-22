@@ -12,6 +12,14 @@ import {
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 
+// Allowlist of permitted email addresses (comma-separated env var)
+const ALLOWED_EMAILS: Set<string> = new Set(
+  (process.env.ALLOWED_EMAILS || "")
+    .split(",")
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
+);
+
 function getGoogleClient(redirectUri: string) {
   return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirectUri);
 }
@@ -81,6 +89,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
       const payload = ticket.getPayload();
       if (!payload || !payload.sub) return res.redirect("/#/?auth_error=invalid_token");
+
+      // Enforce email allowlist
+      const email = (payload.email || "").toLowerCase();
+      if (ALLOWED_EMAILS.size > 0 && !ALLOWED_EMAILS.has(email)) {
+        return res.redirect("/#/?auth_error=not_allowed");
+      }
 
       const user = await storage.upsertGoogleUser({
         googleId: payload.sub,

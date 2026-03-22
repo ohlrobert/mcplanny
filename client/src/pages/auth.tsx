@@ -12,6 +12,8 @@ export default function AuthPage() {
     const authError = params.get("auth_error");
     if (authError === "cancelled") {
       setError("Sign-in was cancelled.");
+    } else if (authError === "not_allowed") {
+      setError("This Google account is not authorized to access McPlanny.");
     } else if (authError) {
       setError("Sign-in failed. Please try again.");
       toast({ title: "Sign-in failed", description: "Google authentication failed. Please try again.", variant: "destructive" });
