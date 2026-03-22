@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,13 +18,23 @@ function ScenarioDialog({ open, onClose, scenario }: { open: boolean; onClose: (
   const { toast } = useToast();
   const isEdit = !!scenario;
 
-  const { register, handleSubmit, watch, setValue } = useForm({
+  const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       name: scenario?.name || "",
       description: scenario?.description || "",
       isBase: scenario?.isBase || false,
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        name: scenario?.name || "",
+        description: scenario?.description || "",
+        isBase: scenario?.isBase || false,
+      });
+    }
+  }, [open, scenario]);
 
   const mutation = useMutation({
     mutationFn: (data: any) =>

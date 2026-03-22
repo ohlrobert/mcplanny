@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +52,23 @@ function AccountDialog({ open, onClose, account }: { open: boolean; onClose: () 
       contributionEndAge: account?.contributionEndAge || "",
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        accountType: account?.accountType || "401k",
+        name: account?.name || "",
+        owner: account?.owner || "primary",
+        balance: account?.balance || 0,
+        rateOfReturn: account?.rateOfReturn || 6.0,
+        assetAllocation: account?.assetAllocation || 60,
+        annualContribution: account?.annualContribution || 0,
+        employerMatch: account?.employerMatch || 0,
+        employerMatchLimit: account?.employerMatchLimit || 0,
+        contributionEndAge: account?.contributionEndAge || "",
+      });
+    }
+  }, [open, account]);
 
   const mutation = useMutation({
     mutationFn: (data: any) =>

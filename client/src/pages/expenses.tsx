@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +27,7 @@ function ExpenseDialog({ open, onClose, expense }: { open: boolean; onClose: () 
   const { toast } = useToast();
   const isEdit = !!expense;
 
-  const { register, handleSubmit, watch, setValue } = useForm({
+  const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       expenseType: expense?.expenseType || "housing",
       category: expense?.category || "must_spend",
@@ -39,6 +39,21 @@ function ExpenseDialog({ open, onClose, expense }: { open: boolean; onClose: () 
       isOneTime: expense?.isOneTime || false,
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        expenseType: expense?.expenseType || "housing",
+        category: expense?.category || "must_spend",
+        name: expense?.name || "",
+        annualAmount: expense?.annualAmount || 0,
+        startAge: expense?.startAge || "",
+        endAge: expense?.endAge || "",
+        annualIncrease: expense?.annualIncrease ?? 2.5,
+        isOneTime: expense?.isOneTime || false,
+      });
+    }
+  }, [open, expense]);
 
   const mutation = useMutation({
     mutationFn: (data: any) =>

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +27,7 @@ function IncomeDialog({ open, onClose, income }: { open: boolean; onClose: () =>
   const p = plan as any;
   const isEdit = !!income;
 
-  const { register, handleSubmit, watch, setValue } = useForm({
+  const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       incomeType: income?.incomeType || "work",
       name: income?.name || "",
@@ -42,6 +42,24 @@ function IncomeDialog({ open, onClose, income }: { open: boolean; onClose: () =>
       pensionCola: income?.pensionCola || 0,
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        incomeType: income?.incomeType || "work",
+        name: income?.name || "",
+        owner: income?.owner || "primary",
+        annualAmount: income?.annualAmount || 0,
+        startAge: income?.startAge || "",
+        endAge: income?.endAge || "",
+        annualIncrease: income?.annualIncrease ?? 2.5,
+        isOneTime: income?.isOneTime || false,
+        ssBenefitAge: income?.ssBenefitAge || 67,
+        pensionType: income?.pensionType || "monthly",
+        pensionCola: income?.pensionCola || 0,
+      });
+    }
+  }, [open, income]);
 
   const incomeType = watch("incomeType");
   const isOneTime = watch("isOneTime");

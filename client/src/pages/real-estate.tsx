@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +23,7 @@ function RealEstateDialog({ open, onClose, property }: { open: boolean; onClose:
   const { toast } = useToast();
   const isEdit = !!property;
 
-  const { register, handleSubmit, watch, setValue } = useForm({
+  const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       propertyType: property?.propertyType || "primary",
       name: property?.name || "",
@@ -38,6 +38,24 @@ function RealEstateDialog({ open, onClose, property }: { open: boolean; onClose:
       plannedPurchaseAge: property?.plannedPurchaseAge || "",
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        propertyType: property?.propertyType || "primary",
+        name: property?.name || "",
+        ownershipType: property?.ownershipType || "own",
+        currentValue: property?.currentValue || 0,
+        mortgageBalance: property?.mortgageBalance || 0,
+        mortgageRate: property?.mortgageRate || 0,
+        monthlyPayment: property?.monthlyPayment || 0,
+        appreciationRate: property?.appreciationRate ?? 3.0,
+        monthlyRentalIncome: property?.monthlyRentalIncome || 0,
+        plannedSaleAge: property?.plannedSaleAge || "",
+        plannedPurchaseAge: property?.plannedPurchaseAge || "",
+      });
+    }
+  }, [open, property]);
 
   const mutation = useMutation({
     mutationFn: (data: any) =>

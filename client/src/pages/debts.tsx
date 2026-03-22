@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +23,7 @@ function DebtDialog({ open, onClose, debt }: { open: boolean; onClose: () => voi
   const { toast } = useToast();
   const isEdit = !!debt;
 
-  const { register, handleSubmit, watch, setValue } = useForm({
+  const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       debtType: debt?.debtType || "credit_card",
       name: debt?.name || "",
@@ -32,6 +32,18 @@ function DebtDialog({ open, onClose, debt }: { open: boolean; onClose: () => voi
       monthlyPayment: debt?.monthlyPayment || 0,
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        debtType: debt?.debtType || "credit_card",
+        name: debt?.name || "",
+        balance: debt?.balance || 0,
+        interestRate: debt?.interestRate || 0,
+        monthlyPayment: debt?.monthlyPayment || 0,
+      });
+    }
+  }, [open, debt]);
 
   const mutation = useMutation({
     mutationFn: (data: any) =>
