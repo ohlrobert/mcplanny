@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, ACCOUNT_TYPE_LABELS } from "@/lib/finance";
-import { Plus, Pencil, Trash2, Landmark } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, ChevronDown, ChevronRight, Calendar, Check, X } from "lucide-react";
 import type { Account } from "@shared/schema";
 
 const ACCOUNT_TYPES = Object.entries(ACCOUNT_TYPE_LABELS);
@@ -32,6 +32,234 @@ const BUCKET_COLORS: Record<string, string> = {
   "money_market": "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
 };
 
+type RateSchedule = {
+  id: number;
+  accountId: number;
+  planId: number;
+  startDate: string;
+  endDate: string | null;
+  rate: number;
+  label: string | null;
+};
+
+// ── Rate Schedule Row (inline edit) ─────────────────────────────────────────
+function RateRow({
+  row,
+  onDelete,
+}: {
+  row: RateSchedule;
+  onDelete: (id: number) => void;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [startDate, setStartDate] = useState(row.startDate);
+  const [endDate, setEndDate] = useState(row.endDate ?? "");
+  const [rate, setRate] = useState(String(row.rate));
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("PATCH", `/api/rates/${row.id}`, {
+        startDate,
+        endDate: endDate || null,
+        rate: parseFloat(rate),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/accounts", row.accountId, "rates"] });
+      qc.invalidateQueries({ queryKey: ["/api/projections"] });
+      toast({ title: "Rate period updated" });
+      setEditing(false);
+    },
+    onError: () => toast({ title: "Error", variant: "destructive" }),
+  });
+
+  if (editing) {
+    return (
+      <tr className="bg-muted/40">
+        <td className="py-1.5 pr-2">
+          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-7 text-xs" />
+        </td>
+        <td className="py-1.5 pr-2">
+          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-7 text-xs" placeholder="Open-ended" />
+        </td>
+        <td className="py-1.5 pr-2">
+          <Input type="number" value={rate} onChange={e => setRate(e.target.value)} step="0.1" min="0" max="50" className="h-7 text-xs w-20" />
+        </td>
+        <td className="py-1.5">
+          <div className="flex gap-1">
+            <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+              <Check size={12} />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditing(false)}>
+              <X size={12} />
+            </Button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-b border-border/40 hover:bg-muted/20">
+      <td className="py-1.5 pr-2 text-xs">{row.startDate}</td>
+      <td className="py-1.5 pr-2 text-xs text-muted-foreground">{row.endDate || <span className="italic">Open-ended</span>}</td>
+      <td className="py-1.5 pr-2 text-xs font-semibold">{row.rate}%</td>
+      <td className="py-1.5">
+        <div className="flex gap-1">
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditing(true)}>
+            <Pencil size={11} />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => onDelete(row.id)}>
+            <Trash2 size={11} />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ── Add Rate Form ────────────────────────────────────────────────────────────
+function AddRateForm({ accountId, onDone }: { accountId: number; onDone: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [rate, setRate] = useState("");
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/accounts/${accountId}/rates`, {
+        startDate,
+        endDate: endDate || null,
+        rate: parseFloat(rate),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/accounts", accountId, "rates"] });
+      qc.invalidateQueries({ queryKey: ["/api/projections"] });
+      toast({ title: "Rate period added" });
+      onDone();
+    },
+    onError: () => toast({ title: "Error saving rate", variant: "destructive" }),
+  });
+
+  return (
+    <tr className="bg-primary/5">
+      <td className="py-1.5 pr-2">
+        <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-7 text-xs" />
+      </td>
+      <td className="py-1.5 pr-2">
+        <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-7 text-xs" />
+      </td>
+      <td className="py-1.5 pr-2">
+        <Input type="number" value={rate} onChange={e => setRate(e.target.value)} step="0.1" min="0" max="50" placeholder="6.0" className="h-7 text-xs w-20" />
+      </td>
+      <td className="py-1.5">
+        <div className="flex gap-1">
+          <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600"
+            onClick={() => createMutation.mutate()}
+            disabled={!startDate || !rate || createMutation.isPending}>
+            <Check size={12} />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onDone}>
+            <X size={12} />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ── Rate Schedule Section ────────────────────────────────────────────────────
+function RateScheduleSection({ account }: { account: Account }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  const { data: schedules = [] } = useQuery<RateSchedule[]>({
+    queryKey: ["/api/accounts", account.id, "rates"],
+    queryFn: () => apiRequest(`/api/accounts/${account.id}/rates`),
+    enabled: open,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/rates/${id}`, {});
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/accounts", account.id, "rates"] });
+      qc.invalidateQueries({ queryKey: ["/api/projections"] });
+      toast({ title: "Rate period removed" });
+    },
+  });
+
+  const hasSchedule = schedules.length > 0;
+
+  return (
+    <div className="mt-2 border-t border-border/40 pt-2">
+      <button
+        type="button"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+        onClick={() => setOpen(o => !o)}
+      >
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        <Calendar size={12} />
+        <span className="font-medium">Rate Schedule</span>
+        {hasSchedule && !open && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1 bg-primary/10 text-primary border-0">
+            {schedules.length} period{schedules.length !== 1 ? "s" : ""}
+          </Badge>
+        )}
+        {!hasSchedule && !open && (
+          <span className="text-[10px] text-muted-foreground/60 ml-1">flat rate</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="mt-2">
+          <div className="text-[11px] text-muted-foreground mb-2">
+            Define date ranges with specific return rates. Gaps default to the account's base Rate of Return ({account.rateOfReturn}%).
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  <th className="text-left pb-1 pr-2 font-medium">Start Date</th>
+                  <th className="text-left pb-1 pr-2 font-medium">End Date</th>
+                  <th className="text-left pb-1 pr-2 font-medium">Rate (%)</th>
+                  <th className="pb-1 w-16" />
+                </tr>
+              </thead>
+              <tbody>
+                {schedules
+                  .slice()
+                  .sort((a, b) => a.startDate.localeCompare(b.startDate))
+                  .map(s => (
+                    <RateRow key={s.id} row={s} onDelete={id => deleteMutation.mutate(id)} />
+                  ))}
+                {adding && (
+                  <AddRateForm accountId={account.id} onDone={() => setAdding(false)} />
+                )}
+              </tbody>
+            </table>
+          </div>
+          {!adding && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 h-7 text-xs gap-1.5 px-2"
+              onClick={() => setAdding(true)}
+            >
+              <Plus size={12} /> Add Rate Period
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Account Dialog ────────────────────────────────────────────────────────────
 function AccountDialog({ open, onClose, account }: { open: boolean; onClose: () => void; account?: Account | null }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -136,7 +364,7 @@ function AccountDialog({ open, onClose, account }: { open: boolean; onClose: () 
               <Input {...register("balance")} type="number" min={0} step={100} />
             </div>
             <div className="space-y-1.5">
-              <Label>Rate of Return (%)</Label>
+              <Label>Rate of Return — Default (%)</Label>
               <Input {...register("rateOfReturn")} type="number" step={0.1} min={0} max={25} />
             </div>
           </div>
@@ -176,6 +404,7 @@ function AccountDialog({ open, onClose, account }: { open: boolean; onClose: () 
   );
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AccountsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -195,7 +424,6 @@ export default function AccountsPage() {
 
   const totalBalance = accounts.reduce((s, a) => s + (a.balance || 0), 0);
 
-  // Group by bucket
   const preTax = accounts.filter(a => ["401k","403b","457b","traditional_ira"].includes(a.accountType));
   const roth = accounts.filter(a => ["roth_401k","roth_ira"].includes(a.accountType));
   const afterTax = accounts.filter(a => ["brokerage","checking","savings","cd","money_market"].includes(a.accountType));
@@ -252,10 +480,11 @@ export default function AccountsPage() {
                             )}
                           </div>
                           <div className="flex gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
-                            <span>Return: {account.rateOfReturn}%</span>
+                            <span>Default return: {account.rateOfReturn}%</span>
                             <span>Stocks: {account.assetAllocation}%</span>
                             {account.annualContribution ? <span>Annual contrib: {formatCurrency(account.annualContribution, true)}</span> : null}
                           </div>
+                          <RateScheduleSection account={account} />
                         </div>
                         <div className="text-right shrink-0">
                           <div className="font-semibold text-sm">{formatCurrency(account.balance, true)}</div>

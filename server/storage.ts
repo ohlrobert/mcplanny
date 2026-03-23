@@ -10,6 +10,7 @@ import {
   type Scenario, type InsertScenario, scenarios,
   type Position, type InsertPosition, positions,
   type WithdrawalStrategy, type InsertWithdrawalStrategy, withdrawalStrategy,
+  type AccountRateSchedule, type InsertAccountRateSchedule, accountRateSchedules,
   type PlaidConnection, type InsertPlaidConnection, plaidConnections,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -66,6 +67,12 @@ export interface IStorage {
   // Withdrawal Strategy
   getWithdrawalStrategyByPlanId(planId: number): Promise<WithdrawalStrategy | undefined>;
   upsertWithdrawalStrategy(ws: InsertWithdrawalStrategy): Promise<WithdrawalStrategy>;
+  // Account Rate Schedules
+  getRateSchedulesByPlanId(planId: number): Promise<AccountRateSchedule[]>;
+  getRateSchedulesByAccountId(accountId: number): Promise<AccountRateSchedule[]>;
+  createRateSchedule(data: InsertAccountRateSchedule): Promise<AccountRateSchedule>;
+  updateRateSchedule(id: number, data: Partial<InsertAccountRateSchedule>): Promise<AccountRateSchedule | undefined>;
+  deleteRateSchedule(id: number): Promise<void>;
   // Plaid Connections
   getPlaidConnectionsByPlanId(planId: number): Promise<PlaidConnection[]>;
   getPlaidConnectionById(id: number): Promise<PlaidConnection | undefined>;
@@ -270,6 +277,25 @@ export class DatabaseStorage implements IStorage {
     }
     const rows = await db.insert(withdrawalStrategy).values(ws).returning();
     return rows[0];
+  }
+
+  // Account Rate Schedules
+  async getRateSchedulesByPlanId(planId: number) {
+    return db.select().from(accountRateSchedules).where(eq(accountRateSchedules.planId, planId));
+  }
+  async getRateSchedulesByAccountId(accountId: number) {
+    return db.select().from(accountRateSchedules).where(eq(accountRateSchedules.accountId, accountId));
+  }
+  async createRateSchedule(data: InsertAccountRateSchedule) {
+    const rows = await db.insert(accountRateSchedules).values(data).returning();
+    return rows[0];
+  }
+  async updateRateSchedule(id: number, data: Partial<InsertAccountRateSchedule>) {
+    const rows = await db.update(accountRateSchedules).set(data).where(eq(accountRateSchedules.id, id)).returning();
+    return rows[0];
+  }
+  async deleteRateSchedule(id: number) {
+    await db.delete(accountRateSchedules).where(eq(accountRateSchedules.id, id));
   }
 
   // Plaid Connections

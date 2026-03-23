@@ -8,7 +8,7 @@ import {
   insertPlanSchema, insertAccountSchema, insertRealEstateSchema,
   insertDebtSchema, insertIncomeSchema, insertExpenseSchema,
   insertHealthcareSchema, insertScenarioSchema, insertWithdrawalStrategySchema,
-  insertPositionSchema,
+  insertPositionSchema, insertAccountRateScheduleSchema,
 } from "@shared/schema";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
@@ -414,13 +414,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ updated, results });
   });
 
+  // ─── Account Rate Schedules ───────────────────────────────────────────────
+  app.get("/api/accounts/:id/rates", requireAuth, async (req, res) => {
+    const schedules = await storage.getRateSchedulesByAccountId(parseInt(req.params.id));
+    res.json(schedules);
+  });
+
+  app.post("/api/accounts/:id/rates", requireAuth, async (req, res) => {
+    const userId = (req as any).userId;
+    const plan = await storage.getPlanByUserId(userId);
+    if (!plan) return res.status(404).json({ error: "Plan not found" });
+    const accountId = parseInt(req.params.id);
+    const parsed = insertAccountRateScheduleSchema.safeParse({ ...req.body, accountId, planId: plan.id });
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+    res.json(await storage.createRateSchedule(parsed.data));
+  });
+
+  app.patch("/api/rates/:id", requireAuth, async (req, res) => {
+    const updated = await storage.updateRateSchedule(parseInt(req.params.id), req.body);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/rates/:id", requireAuth, async (req, res) => {
+    await storage.deleteRateSchedule(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
   // ─── Projections (computed, not stored) ──────────────────────────────────
   app.get("/api/projections", requireAuth, async (req, res) => {
     const userId = (req as any).userId;
     const plan = await storage.getPlanByUserId(userId);
     if (!plan) return res.json({ years: [], monteCarlo: null });
 
-    const [accts, re, dbts, incList, expList, hc, ws] = await Promise.all([
+    const [accts, re, dbts, incList, expList, hc, ws, rateSchedules] = await Promise.all([
       storage.getAccountsByPlanId(plan.id),
       storage.getRealEstateByPlanId(plan.id),
       storage.getDebtsByPlanId(plan.id),
@@ -428,9 +455,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       storage.getExpensesByPlanId(plan.id),
       storage.getHealthcareByPlanId(plan.id),
       storage.getWithdrawalStrategyByPlanId(plan.id),
+      storage.getRateSchedulesByPlanId(plan.id),
     ]);
 
-    const projections = computeProjections(plan, accts, re, dbts, incList, expList, hc, ws);
+    const projections = computeProjections(plan, accts, re, dbts, incList, expList, hc, ws, rateSchedules);
     res.json(projections);
   });
 
@@ -440,8 +468,39 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   return httpServer;
 }
 
+// ─── Rate schedule resolution ─────────────────────────────────────────────────
+// Given an account and all rate schedules for the plan, find the applicable rate
+// for a specific calendar year. Returns the account's default rateOfReturn as fallback.
+function resolveRate(account: any, rateSchedules: any[], year: number): number {
+  const acctSchedules = rateSchedules.filter(s => s.accountId === account.id);
+  if (acctSchedules.length === 0) return account.rateOfReturn ?? 6.0;
+
+  const matches = acctSchedules.filter(s => {
+    const startYear = new Date(s.startDate).getFullYear();
+    const endYear = s.endDate ? new Date(s.endDate).getFullYear() : Infinity;
+    return year >= startYear && year <= endYear;
+  });
+
+  if (matches.length === 0) return account.rateOfReturn ?? 6.0;
+
+  // Pick the one with the latest startDate on overlap
+  matches.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  return matches[0].rate;
+}
+
+// Compute balance-weighted average return across all accounts for a given year
+function computeWeightedReturn(accounts: any[], rateSchedules: any[], year: number): number {
+  if (accounts.length === 0) return 6.0;
+  const totalBalance = accounts.reduce((s, a) => s + (a.balance || 0), 0);
+  if (totalBalance === 0) {
+    const sum = accounts.reduce((s, a) => s + resolveRate(a, rateSchedules, year), 0);
+    return sum / accounts.length;
+  }
+  return accounts.reduce((s, a) => s + resolveRate(a, rateSchedules, year) * (a.balance || 0), 0) / totalBalance;
+}
+
 // ─── Projection Engine ────────────────────────────────────────────────────────
-function computeProjections(plan: any, accounts: any[], realEstateList: any[], debts: any[], incomes: any[], expenses: any[], healthcare: any, ws: any) {
+function computeProjections(plan: any, accounts: any[], realEstateList: any[], debts: any[], incomes: any[], expenses: any[], healthcare: any, ws: any, rateSchedules: any[] = []) {
   const currentYear = new Date().getFullYear();
   const birthYear = plan.birthYear || (currentYear - 45);
   const currentAge = currentYear - birthYear;
@@ -459,10 +518,8 @@ function computeProjections(plan: any, accounts: any[], realEstateList: any[], d
   let afterTaxBal = accounts.filter(a => ["brokerage","checking","savings","cd","money_market"].includes(a.accountType)).reduce((s, a) => s + (a.balance || 0), 0);
   let hsaBal = accounts.filter(a => a.accountType === "hsa").reduce((s, a) => s + (a.balance || 0), 0);
 
-  // Weighted average return
-  const avgReturn = accounts.length > 0
-    ? accounts.reduce((s, a) => s + (a.rateOfReturn || 6) * (a.balance || 0), 0) / Math.max(1, accounts.reduce((s, a) => s + (a.balance || 0), 0))
-    : 6.0;
+  // Baseline weighted average return (used for Monte Carlo — uses current-year rates)
+  const avgReturn = computeWeightedReturn(accounts, rateSchedules, currentYear);
 
   // Real estate equity
   const totalRealEstateEquity = realEstateList.reduce((s, r) => s + ((r.currentValue || 0) - (r.mortgageBalance || 0)), 0);
@@ -548,8 +605,9 @@ function computeProjections(plan: any, accounts: any[], realEstateList: any[], d
     // Net cash flow
     const netCashFlow = totalIncome + annualContributions - totalExpenses;
 
-    // Apply returns to balances
-    const returnRate = (avgReturn / 100);
+    // Apply returns to balances — use per-year rate from schedules (or fallback)
+    const yearlyReturn = computeWeightedReturn(accounts, rateSchedules, year);
+    const returnRate = yearlyReturn / 100;
     running_preTax = running_preTax * (1 + returnRate);
     running_roth = running_roth * (1 + returnRate);
     running_afterTax = running_afterTax * (1 + returnRate);

@@ -239,6 +239,21 @@ export const insertWithdrawalStrategySchema = createInsertSchema(withdrawalStrat
 export type InsertWithdrawalStrategy = z.infer<typeof insertWithdrawalStrategySchema>;
 export type WithdrawalStrategy = typeof withdrawalStrategy.$inferSelect;
 
+// ─── Account Rate Schedules ───────────────────────────────────────────────────
+export const accountRateSchedules = pgTable("account_rate_schedules", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull(),
+  planId: integer("plan_id").notNull(),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date"),
+  rate: real("rate").notNull(),
+  label: text("label"),
+});
+
+export const insertAccountRateScheduleSchema = createInsertSchema(accountRateSchedules).omit({ id: true });
+export type InsertAccountRateSchedule = z.infer<typeof insertAccountRateScheduleSchema>;
+export type AccountRateSchedule = typeof accountRateSchedules.$inferSelect;
+
 // ─── Plaid Connections ────────────────────────────────────────────────────────
 export const plaidConnections = pgTable("plaid_connections", {
   id: serial("id").primaryKey(),
