@@ -560,8 +560,12 @@ function computeProjections(plan: any, accounts: any[], realEstateList: any[], d
   let afterTaxBal = accounts.filter(a => ["brokerage","checking","savings","cd","money_market"].includes(a.accountType)).reduce((s, a) => s + (a.balance || 0), 0);
   let hsaBal = accounts.filter(a => a.accountType === "hsa").reduce((s, a) => s + (a.balance || 0), 0);
 
-  // Baseline weighted average return (used for Monte Carlo — uses current-year rates)
-  const avgReturn = computeWeightedReturn(accounts, rateSchedules, currentYear);
+  // Baseline weighted average return for Monte Carlo: average across projection horizon years
+  // so future schedule changes are reflected in the stochastic simulation baseline.
+  const projectionYears = Array.from({ length: planToAge - currentAge }, (_, i) => currentYear + i);
+  const avgReturn = projectionYears.length > 0
+    ? projectionYears.reduce((s, y) => s + computeWeightedReturn(accounts, rateSchedules, y), 0) / projectionYears.length
+    : computeWeightedReturn(accounts, rateSchedules, currentYear);
 
   // Real estate equity
   const totalRealEstateEquity = realEstateList.reduce((s, r) => s + ((r.currentValue || 0) - (r.mortgageBalance || 0)), 0);
