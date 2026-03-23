@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/finance";
-import { Plus, Pencil, Trash2, TrendingUp, TrendingDown, PieChart } from "lucide-react";
+import { Plus, Pencil, Trash2, TrendingUp, TrendingDown, PieChart, RefreshCw } from "lucide-react";
 import type { Account } from "@shared/schema";
 
 type Position = {
@@ -26,11 +26,11 @@ type Position = {
   notes: string | null;
 };
 
-const INVESTMENT_ACCOUNT_TYPES = ["roth_ira", "roth_401k", "traditional_ira", "401k", "403b", "457b", "hsa"];
+const INVESTMENT_ACCOUNT_TYPES = ["roth_ira", "roth_401k", "traditional_ira", "401k", "403b", "457b", "hsa", "brokerage"];
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   roth_ira: "Roth IRA", roth_401k: "Roth 401(k)", traditional_ira: "Traditional IRA",
-  "401k": "401(k)", "403b": "403(b)", "457b": "457(b)", hsa: "HSA",
+  "401k": "401(k)", "403b": "403(b)", "457b": "457(b)", hsa: "HSA", brokerage: "Brokerage",
 };
 
 function calcDerived(p: Position) {
@@ -172,6 +172,26 @@ export default function PositionsPage() {
     },
   });
 
+  const refreshPricesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/positions/refresh-prices", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["/api/positions"] });
+      if (data.error) {
+        toast({ title: "Price refresh unavailable", description: data.error, variant: "destructive" });
+      } else {
+        const skipped = (data.results?.length ?? 0) - data.updated;
+        toast({
+          title: `Prices refreshed`,
+          description: `Updated ${data.updated} position${data.updated !== 1 ? "s" : ""}${skipped > 0 ? ` (${skipped} ticker${skipped !== 1 ? "s" : ""} not found)` : ""}`,
+        });
+      }
+    },
+    onError: () => toast({ title: "Price refresh failed", description: "Add a FINNHUB_API_KEY secret to enable live prices", variant: "destructive" }),
+  });
+
   const totalValue = positions.reduce((s, p) => s + p.shares * p.currentPrice, 0);
   const totalCost = positions.reduce((s, p) => s + p.shares * p.costBasisPerShare, 0);
   const totalGain = totalValue - totalCost;
@@ -187,11 +207,24 @@ export default function PositionsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-bold">Investment Positions</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Track holdings in your tax-advantaged accounts</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Track holdings across your retirement and brokerage accounts</p>
         </div>
-        <Button onClick={() => { setEditPosition(null); setDialogOpen(true); }} className="gap-2" disabled={investmentAccounts.length === 0}>
-          <Plus size={16} /> Add Position
-        </Button>
+        <div className="flex items-center gap-2">
+          {positions.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => refreshPricesMutation.mutate()}
+              disabled={refreshPricesMutation.isPending}
+              className="gap-2"
+            >
+              <RefreshCw size={15} className={refreshPricesMutation.isPending ? "animate-spin" : ""} />
+              {refreshPricesMutation.isPending ? "Refreshing…" : "Refresh Prices"}
+            </Button>
+          )}
+          <Button onClick={() => { setEditPosition(null); setDialogOpen(true); }} className="gap-2" disabled={investmentAccounts.length === 0}>
+            <Plus size={16} /> Add Position
+          </Button>
+        </div>
       </div>
 
       {investmentAccounts.length === 0 && (
@@ -199,7 +232,7 @@ export default function PositionsPage() {
           <CardContent className="py-12 text-center">
             <PieChart className="mx-auto mb-3 text-muted-foreground" size={32} />
             <div className="font-medium mb-1">No investment accounts yet</div>
-            <p className="text-sm text-muted-foreground">Add a Roth IRA, Traditional IRA, 401(k), or HSA account first</p>
+            <p className="text-sm text-muted-foreground">Add a Roth IRA, Traditional IRA, 401(k), HSA, or Brokerage account first</p>
           </CardContent>
         </Card>
       )}

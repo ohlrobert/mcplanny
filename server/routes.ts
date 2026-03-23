@@ -374,6 +374,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  // Refresh current prices via Finnhub
+  app.post("/api/positions/refresh-prices", requireAuth, async (req, res) => {
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "FINNHUB_API_KEY not configured" });
+
+    const userId = (req as any).userId;
+    const plan = await storage.getPlanByUserId(userId);
+    if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+    const positions = await storage.getPositionsByPlanId(plan.id);
+    if (positions.length === 0) return res.json({ updated: 0, results: [] });
+
+    const tickers = [...new Set(positions.map(p => p.ticker.toUpperCase()))];
+
+    const results: { ticker: string; price: number | null; error?: string }[] = [];
+    for (const ticker of tickers) {
+      try {
+        const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${apiKey}`;
+        const r = await fetch(url);
+        const data = await r.json() as any;
+        const price = data.c && data.c > 0 ? data.c : null;
+        results.push({ ticker, price });
+      } catch {
+        results.push({ ticker, price: null, error: "fetch failed" });
+      }
+    }
+
+    // Update each position that got a valid price
+    let updated = 0;
+    for (const pos of positions) {
+      const result = results.find(r => r.ticker === pos.ticker.toUpperCase());
+      if (result?.price && result.price > 0) {
+        await storage.updatePosition(pos.id, { currentPrice: result.price });
+        updated++;
+      }
+    }
+
+    res.json({ updated, results });
+  });
+
   // ─── Projections (computed, not stored) ──────────────────────────────────
   app.get("/api/projections", requireAuth, async (req, res) => {
     const userId = (req as any).userId;
