@@ -46,12 +46,13 @@ type RateSchedule = {
 function RateRow({
   row,
   onDelete,
+  onUpdated,
 }: {
   row: RateSchedule;
   onDelete: (id: number) => void;
+  onUpdated?: () => void;
 }) {
   const { toast } = useToast();
-  const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [startDate, setStartDate] = useState(row.startDate);
   const [endDate, setEndDate] = useState(row.endDate ?? "");
@@ -65,8 +66,7 @@ function RateRow({
         rate: parseFloat(rate),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/accounts", row.accountId, "rates"] });
-      qc.invalidateQueries({ queryKey: ["/api/projections"] });
+      onUpdated?.();
       toast({ title: "Rate period updated" });
       setEditing(false);
     },
@@ -119,9 +119,8 @@ function RateRow({
 }
 
 // ── Add Rate Form ────────────────────────────────────────────────────────────
-function AddRateForm({ accountId, onDone }: { accountId: number; onDone: () => void }) {
+function AddRateForm({ accountId, onDone, onCreated }: { accountId: number; onDone: () => void; onCreated?: () => void }) {
   const { toast } = useToast();
-  const qc = useQueryClient();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [rate, setRate] = useState("");
@@ -134,8 +133,7 @@ function AddRateForm({ accountId, onDone }: { accountId: number; onDone: () => v
         rate: parseFloat(rate),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/accounts", accountId, "rates"] });
-      qc.invalidateQueries({ queryKey: ["/api/projections"] });
+      onCreated?.();
       toast({ title: "Rate period added" });
       onDone();
     },
@@ -170,24 +168,20 @@ function AddRateForm({ accountId, onDone }: { accountId: number; onDone: () => v
 }
 
 // ── Rate Schedule Section ────────────────────────────────────────────────────
-function RateScheduleSection({ account }: { account: Account }) {
+// allSchedules is pre-loaded by the parent page (all schedules for the plan)
+function RateScheduleSection({ account, allSchedules }: { account: Account; allSchedules: RateSchedule[] }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  const { data: schedules = [] } = useQuery<RateSchedule[]>({
-    queryKey: ["/api/accounts", account.id, "rates"],
-    queryFn: () => apiRequest(`/api/accounts/${account.id}/rates`),
-    enabled: open,
-  });
+  // Filter schedules for this account from the pre-loaded set
+  const schedules = allSchedules.filter(s => s.accountId === account.id);
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/rates/${id}`, {});
-    },
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/rates/${id}`, {}),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/accounts", account.id, "rates"] });
+      qc.invalidateQueries({ queryKey: ["/api/plan/rates"] });
       qc.invalidateQueries({ queryKey: ["/api/projections"] });
       toast({ title: "Rate period removed" });
     },
@@ -235,10 +229,25 @@ function RateScheduleSection({ account }: { account: Account }) {
                   .slice()
                   .sort((a, b) => a.startDate.localeCompare(b.startDate))
                   .map(s => (
-                    <RateRow key={s.id} row={s} onDelete={id => deleteMutation.mutate(id)} />
+                    <RateRow
+                      key={s.id}
+                      row={s}
+                      onDelete={id => deleteMutation.mutate(id)}
+                      onUpdated={() => {
+                        qc.invalidateQueries({ queryKey: ["/api/plan/rates"] });
+                        qc.invalidateQueries({ queryKey: ["/api/projections"] });
+                      }}
+                    />
                   ))}
                 {adding && (
-                  <AddRateForm accountId={account.id} onDone={() => setAdding(false)} />
+                  <AddRateForm
+                    accountId={account.id}
+                    onDone={() => setAdding(false)}
+                    onCreated={() => {
+                      qc.invalidateQueries({ queryKey: ["/api/plan/rates"] });
+                      qc.invalidateQueries({ queryKey: ["/api/projections"] });
+                    }}
+                  />
                 )}
               </tbody>
             </table>
@@ -413,6 +422,9 @@ export default function AccountsPage() {
 
   const { data: accounts = [], isLoading } = useQuery<Account[]>({ queryKey: ["/api/accounts"] });
 
+  // Pre-load ALL rate schedules for the plan so collapsed cards can show accurate flat/scheduled badges
+  const { data: allSchedules = [] } = useQuery<RateSchedule[]>({ queryKey: ["/api/plan/rates"] });
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/accounts/${id}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -484,7 +496,7 @@ export default function AccountsPage() {
                             <span>Stocks: {account.assetAllocation}%</span>
                             {account.annualContribution ? <span>Annual contrib: {formatCurrency(account.annualContribution, true)}</span> : null}
                           </div>
-                          <RateScheduleSection account={account} />
+                          <RateScheduleSection account={account} allSchedules={allSchedules} />
                         </div>
                         <div className="text-right shrink-0">
                           <div className="font-semibold text-sm">{formatCurrency(account.balance, true)}</div>

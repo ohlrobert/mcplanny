@@ -415,8 +415,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ─── Account Rate Schedules ───────────────────────────────────────────────
+  // Bulk endpoint: all rate schedules for the authenticated user's plan
+  app.get("/api/plan/rates", requireAuth, async (req, res) => {
+    const userId = (req as any).userId;
+    const plan = await storage.getPlanByUserId(userId);
+    if (!plan) return res.json([]);
+    res.json(await storage.getRateSchedulesByPlanId(plan.id));
+  });
+
   app.get("/api/accounts/:id/rates", requireAuth, async (req, res) => {
-    const schedules = await storage.getRateSchedulesByAccountId(parseInt(req.params.id));
+    const userId = (req as any).userId;
+    const plan = await storage.getPlanByUserId(userId);
+    if (!plan) return res.status(404).json({ error: "Plan not found" });
+    const accountId = parseInt(req.params.id);
+    // Verify account belongs to the user's plan
+    const accounts = await storage.getAccountsByPlanId(plan.id);
+    if (!accounts.find(a => a.id === accountId)) return res.status(403).json({ error: "Forbidden" });
+    const schedules = await storage.getRateSchedulesByAccountId(accountId);
     res.json(schedules);
   });
 
@@ -425,19 +440,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const plan = await storage.getPlanByUserId(userId);
     if (!plan) return res.status(404).json({ error: "Plan not found" });
     const accountId = parseInt(req.params.id);
-    const parsed = insertAccountRateScheduleSchema.safeParse({ ...req.body, accountId, planId: plan.id });
+    // Verify account belongs to the user's plan
+    const accounts = await storage.getAccountsByPlanId(plan.id);
+    if (!accounts.find(a => a.id === accountId)) return res.status(403).json({ error: "Forbidden" });
+    const parsed = insertAccountRateScheduleSchema.safeParse({
+      startDate: req.body.startDate,
+      endDate: req.body.endDate ?? null,
+      rate: req.body.rate,
+      label: req.body.label ?? null,
+      accountId,
+      planId: plan.id,
+    });
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
     res.json(await storage.createRateSchedule(parsed.data));
   });
 
   app.patch("/api/rates/:id", requireAuth, async (req, res) => {
-    const updated = await storage.updateRateSchedule(parseInt(req.params.id), req.body);
+    const userId = (req as any).userId;
+    const plan = await storage.getPlanByUserId(userId);
+    if (!plan) return res.status(404).json({ error: "Plan not found" });
+    const schedule = await storage.getRateScheduleById(parseInt(req.params.id));
+    if (!schedule || schedule.planId !== plan.id) return res.status(403).json({ error: "Forbidden" });
+    // Only allow updating the rate-related fields; never reassign planId or accountId
+    const { startDate, endDate, rate, label } = req.body;
+    const updated = await storage.updateRateSchedule(schedule.id, { startDate, endDate, rate, label });
     if (!updated) return res.status(404).json({ error: "Not found" });
     res.json(updated);
   });
 
   app.delete("/api/rates/:id", requireAuth, async (req, res) => {
-    await storage.deleteRateSchedule(parseInt(req.params.id));
+    const userId = (req as any).userId;
+    const plan = await storage.getPlanByUserId(userId);
+    if (!plan) return res.status(404).json({ error: "Plan not found" });
+    const schedule = await storage.getRateScheduleById(parseInt(req.params.id));
+    if (!schedule || schedule.planId !== plan.id) return res.status(403).json({ error: "Forbidden" });
+    await storage.deleteRateSchedule(schedule.id);
     res.json({ success: true });
   });
 

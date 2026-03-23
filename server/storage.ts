@@ -70,6 +70,7 @@ export interface IStorage {
   // Account Rate Schedules
   getRateSchedulesByPlanId(planId: number): Promise<AccountRateSchedule[]>;
   getRateSchedulesByAccountId(accountId: number): Promise<AccountRateSchedule[]>;
+  getRateScheduleById(id: number): Promise<AccountRateSchedule | null>;
   createRateSchedule(data: InsertAccountRateSchedule): Promise<AccountRateSchedule>;
   updateRateSchedule(id: number, data: Partial<InsertAccountRateSchedule>): Promise<AccountRateSchedule | undefined>;
   deleteRateSchedule(id: number): Promise<void>;
@@ -285,6 +286,10 @@ export class DatabaseStorage implements IStorage {
   }
   async getRateSchedulesByAccountId(accountId: number) {
     return db.select().from(accountRateSchedules).where(eq(accountRateSchedules.accountId, accountId));
+  }
+  async getRateScheduleById(id: number) {
+    const rows = await db.select().from(accountRateSchedules).where(eq(accountRateSchedules.id, id));
+    return rows[0] ?? null;
   }
   async createRateSchedule(data: InsertAccountRateSchedule) {
     const rows = await db.insert(accountRateSchedules).values(data).returning();
