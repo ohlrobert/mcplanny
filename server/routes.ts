@@ -452,6 +452,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       planId: plan.id,
     });
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+    // Validate date ordering: endDate must be >= startDate if provided
+    if (parsed.data.endDate && parsed.data.endDate < parsed.data.startDate) {
+      return res.status(400).json({ error: "endDate must be on or after startDate" });
+    }
     res.json(await storage.createRateSchedule(parsed.data));
   });
 
@@ -465,6 +469,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const patchSchema = insertAccountRateScheduleSchema.pick({ startDate: true, endDate: true, rate: true, label: true }).partial();
     const parsed = patchSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+    // Validate date ordering when both dates are present in the patch
+    const effectiveStart = parsed.data.startDate ?? schedule.startDate;
+    const effectiveEnd = parsed.data.endDate !== undefined ? parsed.data.endDate : schedule.endDate;
+    if (effectiveEnd && effectiveEnd < effectiveStart) {
+      return res.status(400).json({ error: "endDate must be on or after startDate" });
+    }
     const updated = await storage.updateRateSchedule(schedule.id, parsed.data);
     if (!updated) return res.status(404).json({ error: "Not found" });
     res.json(updated);
