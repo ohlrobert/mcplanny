@@ -173,10 +173,7 @@ export default function PositionsPage() {
   });
 
   const refreshPricesMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/positions/refresh-prices", {});
-      return res.json();
-    },
+    mutationFn: () => apiRequest("POST", "/api/positions/refresh-prices", {}),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["/api/positions"] });
       if (data.error) {
@@ -189,7 +186,11 @@ export default function PositionsPage() {
         });
       }
     },
-    onError: () => toast({ title: "Price refresh failed", description: "Add a FINNHUB_API_KEY secret to enable live prices", variant: "destructive" }),
+    onError: (err: any) => toast({
+      title: "Price refresh failed",
+      description: err?.message?.includes("503") ? "FINNHUB_API_KEY secret is missing or the server needs a restart" : (err?.message || "Unknown error"),
+      variant: "destructive",
+    }),
   });
 
   const totalValue = positions.reduce((s, p) => s + p.shares * p.currentPrice, 0);
