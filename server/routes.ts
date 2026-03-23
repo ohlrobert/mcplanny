@@ -461,9 +461,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!plan) return res.status(404).json({ error: "Plan not found" });
     const schedule = await storage.getRateScheduleById(parseInt(req.params.id));
     if (!schedule || schedule.planId !== plan.id) return res.status(403).json({ error: "Forbidden" });
-    // Only allow updating the rate-related fields; never reassign planId or accountId
-    const { startDate, endDate, rate, label } = req.body;
-    const updated = await storage.updateRateSchedule(schedule.id, { startDate, endDate, rate, label });
+    // Validate only the mutable rate fields; planId/accountId cannot be reassigned
+    const patchSchema = insertAccountRateScheduleSchema.pick({ startDate: true, endDate: true, rate: true, label: true }).partial();
+    const parsed = patchSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+    const updated = await storage.updateRateSchedule(schedule.id, parsed.data);
     if (!updated) return res.status(404).json({ error: "Not found" });
     res.json(updated);
   });
@@ -525,7 +527,10 @@ function resolveRate(account: any, rateSchedules: any[], year: number): number {
   return matches[0].rate;
 }
 
-// Compute balance-weighted average return across all accounts for a given year
+// Compute balance-weighted average return across all accounts for a given year.
+// Note: weights are based on the CURRENT (starting) account balances, not per-year
+// simulated balances. This is intentional — per-account balance tracking is out of
+// scope, so weighting is held constant while rates may vary year-to-year.
 function computeWeightedReturn(accounts: any[], rateSchedules: any[], year: number): number {
   if (accounts.length === 0) return 6.0;
   const totalBalance = accounts.reduce((s, a) => s + (a.balance || 0), 0);
