@@ -515,8 +515,9 @@ function resolveRate(account: any, rateSchedules: any[], year: number): number {
   if (acctSchedules.length === 0) return account.rateOfReturn ?? 6.0;
 
   const matches = acctSchedules.filter(s => {
-    const startYear = new Date(s.startDate).getFullYear();
-    const endYear = s.endDate ? new Date(s.endDate).getFullYear() : Infinity;
+    // Parse year from YYYY-MM-DD string directly to avoid timezone-offset issues
+    const startYear = parseInt(s.startDate.slice(0, 4), 10);
+    const endYear = s.endDate ? parseInt(s.endDate.slice(0, 4), 10) : Infinity;
     return year >= startYear && year <= endYear;
   });
 
